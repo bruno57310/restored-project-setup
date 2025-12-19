@@ -1,93 +1,80 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Session } from '@supabase/supabase-js';
+import type { User, Session } from '@supabase/supabase-js';
+import { useSubscriptionTier } from '../hooks/useSubscriptionTier';
 
-interface AuthContextType {
-  user: Session['user'] | null;
+type AuthContextType = {
+  user: User | null;
   subscriptionTier: string | null;
-  setSubscriptionTier: (tier: string | null) => void;
-  signIn: (email: string, password: string) => Promise<Session['user'] | null>;
   signUp: (email: string, password: string) => Promise<void>;
-  resetPassword: (email: string, redirectUrl: string) => Promise<void>;
-}
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  loading: boolean;
+};
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  subscriptionTier: null,
-  setSubscriptionTier: () => {},
-  signIn: async () => null,
-  signUp: async () => {},
-  resetPassword: async () => {},
-});
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<Session['user'] | null>(null);
-  const [subscriptionTier, setSubscriptionTier] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { tier } = useSubscriptionTier(user);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          const { data } = await supabase
-            .from('subscriptions')
-            .select('tier')
-            .eq('login_id', session.user.id)
-            .single();
-          setSubscriptionTier(data?.tier || null);
-        }
-      }
-    );
-
-    return () => {
-      authListener?.subscription.unsubscribe();
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
     };
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) throw error;
-    setUser(data.user);
-    return data.user;
-  };
-
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-    if (data.user) setUser(data.user);
-  };
-
-  const resetPassword = async (email: string, redirectUrl: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl,
-    });
+    const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
   };
 
-  return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        subscriptionTier, 
-        setSubscriptionTier,
-        signIn,
-        signUp,
-        resetPassword
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    setUser(null);
+  };
+
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+  };
+
+  const value = {
+    user,
+    subscriptionTier: tier,
+    signUp,
+    signIn,
+    signOut,
+    resetPassword,
+    loading
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
