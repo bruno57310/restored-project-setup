@@ -1,3 +1,4 @@
+i// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
@@ -60,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     user,
-    subscriptionTier: tier,
+    subscriptionTier: tier || 'free', // Ensure default value
     signUp,
     signIn,
     signOut,
