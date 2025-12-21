@@ -107,14 +107,16 @@ function BlogList() {
       
       if (error) throw error;
       
-      // Enhanced tier-based filtering with debugging
       console.log('Current subscription tier:', subscriptionTier);
       console.log('Raw posts before filtering:', data);
 
       let filteredPosts = data || [];
       
-      // CORRECTED AND VERIFIED ACCESS LEVEL FILTERING
+      // Enhanced tier-based filtering with admin check
       filteredPosts = filteredPosts.filter(post => {
+        // Admin users bypass all restrictions
+        if (user?.email === 'bruno_wendling@orange.fr') return true;
+
         const accessLevel = post.access_level || 'public';
         
         if (!user) {
@@ -126,8 +128,7 @@ function BlogList() {
             return true; // Access to all levels
           case 'pro':
             return accessLevel === 'public' || accessLevel === 'pro';
-          case 'free':
-          default:
+          default: // free
             return accessLevel === 'public';
         }
       });
@@ -182,6 +183,9 @@ function BlogList() {
   };
 
   const canAccessPost = (post: BlogPost): boolean => {
+    // Admin override
+    if (user?.email === 'bruno_wendling@orange.fr') return true;
+
     if (!post.access_level || post.access_level === 'public') {
       return true;
     }
@@ -190,7 +194,6 @@ function BlogList() {
       return false;
     }
     
-    // CORRECTED ACCESS CHECK
     switch (subscriptionTier) {
       case 'pro':
         return post.access_level === 'pro' || post.access_level === 'public';
