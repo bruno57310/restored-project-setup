@@ -58,12 +58,43 @@ function BlogList() {
   const { t } = useTranslation();
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  
+  // Add debounce effect
+  // useEffect(() => {
+  //   const handler = setTimeout(() => {
+  //     setDebouncedSearchTerm(searchTerm);
+  //   }, 500);
 
+  //   return () => {
+  //     clearTimeout(handler);
+  //   };
+  // }, [searchTerm]);
+
+  // Update dependency array to use debounced value
+  // useEffect(() => {
+  //   fetchCategories();
+  //   fetchPosts();
+  // }, [user, selectedCategory, debouncedSearchTerm, subscriptionTier]);
+  
+  // Update the useEffect hook to handle initial load properly
+  
   useEffect(() => {
     fetchCategories();
-    fetchPosts();
-  }, [user, selectedCategory, searchTerm, subscriptionTier]);
+  
+    // Initial fetch without search filters
+    if (debouncedSearchTerm === '') {
+      fetchPosts();
+    }
+  }, [user, selectedCategory, subscriptionTier]); // Removed debouncedSearchTerm from dependencies
 
+// Separate effect for search term changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== '') {
+      fetchPosts();
+    }
+  }, [debouncedSearchTerm]);
+  
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
@@ -99,10 +130,15 @@ function BlogList() {
         query = query.eq('category_id', selectedCategory);
       }
       
-      if (searchTerm) {
-        query = query.or(`title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%`);
-      }
+      //if (searchTerm) {
+      //  query = query.or(`title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%`);
+      //}
       
+	  // CORRECTED: Use debouncedSearchTerm instead of searchTerm
+      if (debouncedSearchTerm) {
+        query = query.or(`title.ilike.%${debouncedSearchTerm}%,content.ilike.%${debouncedSearchTerm}%`);
+      }
+	  
       const { data, error } = await query;
       
       if (error) throw error;
