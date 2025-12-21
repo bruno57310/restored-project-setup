@@ -1,7 +1,7 @@
-import React, { ErrorInfo, ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { ErrorInfo, ReactNode, Component } from 'react';
+import { withTranslation, WithTranslation } from 'react-i18next';
 
-interface ErrorBoundaryProps {
+interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode;
 }
 
@@ -11,7 +11,7 @@ interface ErrorBoundaryState {
   errorInfo?: ErrorInfo;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -31,7 +31,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   };
 
   render() {
-    const { t } = useTranslation();
+    const { t } = this.props;
     
     if (this.state.hasError) {
       return (
@@ -66,3 +66,5 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return this.props.children;
   }
 }
+
+export default withTranslation()(ErrorBoundary);
